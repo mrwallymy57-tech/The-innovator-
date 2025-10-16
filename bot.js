@@ -1,12 +1,13 @@
-// ===== إعدادات البوت =====
+// ===== إعداد البوت =====
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 
-// 🔹 توكن البوت (مؤقت - غيّره لاحقًا من @BotFather)
+// 🔹 توكن البوت الحقيقي (ضعه هنا)
 const TOKEN = '7660967028:AAHMkh-xHOC81n7pjhp_IuONwxE1G_72Oqo';
-// 🔹 رقم الأدمن (ضع رقمك ID هنا)
-const ADMIN_ID = 8457242337; // غيّر إلى رقمك من @userinfobot
+
+// 🔹 رقم الأدمن (احصل عليه من بوت @userinfobot)
+const ADMIN_ID = 8457242337;
 
 // ===== إعداد السيرفر لـ Render =====
 const app = express();
@@ -44,7 +45,8 @@ function getAdminKeyboard() {
     reply_markup: {
       keyboard: [
         [{ text: '➕ إضافة زر' }, { text: '🗑️ حذف زر' }],
-        [{ text: '📋 عرض الأزرار' }, { text: '🔙 رجوع' }]
+        [{ text: '📋 عرض الأزرار' }, { text: '📢 إرسال رسالة للجميع' }],
+        [{ text: '🔙 رجوع' }]
       ],
       resize_keyboard: true
     }
@@ -60,12 +62,18 @@ bot.onText(/\/start/, (msg) => {
   }
 });
 
+// ===== تخزين المستخدمين لإرسال الرسائل لاحقًا =====
+let users = new Set();
+
 // ===== منطق الأزرار =====
 let adminState = {};
 
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
+
+  // حفظ المستخدم
+  if (!users.has(chatId)) users.add(chatId);
 
   // === الأزرار الخاصة بالمدير ===
   if (chatId === ADMIN_ID) {
@@ -94,12 +102,18 @@ bot.on('message', (msg) => {
         }
         break;
 
+      case '📢 إرسال رسالة للجميع':
+        adminState[chatId] = 'broadcast';
+        bot.sendMessage(chatId, '🗣️ أرسل الآن الرسالة التي تريد إرسالها إلى جميع المستخدمين:');
+        break;
+
       case '🔙 رجوع':
         adminState[chatId] = null;
         bot.sendMessage(chatId, '⬅️ عدت إلى القائمة الرئيسية:', getAdminKeyboard());
         break;
 
       default:
+        // === إضافة زر جديد ===
         if (adminState[chatId] === 'adding') {
           const newBtn = text.trim();
           if (!newBtn) return bot.sendMessage(chatId, '❌ لا يمكن أن يكون الاسم فارغًا.');
@@ -107,7 +121,9 @@ bot.on('message', (msg) => {
           saveButtons();
           adminState[chatId] = null;
           bot.sendMessage(chatId, `✅ تمت إضافة الزر "${newBtn}" بنجاح.`, getAdminKeyboard());
-        } else if (adminState[chatId] === 'deleting') {
+        }
+        // === حذف زر ===
+        else if (adminState[chatId] === 'deleting') {
           if (text.startsWith('❌ ')) {
             const btnToDelete = text.replace('❌ ', '');
             buttons = buttons.filter(b => b !== btnToDelete);
@@ -115,6 +131,17 @@ bot.on('message', (msg) => {
             bot.sendMessage(chatId, `🗑️ تم حذف الزر "${btnToDelete}".`, getAdminKeyboard());
             adminState[chatId] = null;
           }
+        }
+        // === إرسال رسالة للجميع ===
+        else if (adminState[chatId] === 'broadcast') {
+          adminState[chatId] = null;
+          bot.sendMessage(chatId, `📢 جاري إرسال الرسالة إلى ${users.size} مستخدم...`);
+          users.forEach(uid => {
+            if (uid !== ADMIN_ID) {
+              bot.sendMessage(uid, `📢 رسالة من المدير:\n\n${text}`).catch(() => {});
+            }
+          });
+          bot.sendMessage(chatId, '✅ تم إرسال الرسالة للجميع.', getAdminKeyboard());
         }
         break;
     }
