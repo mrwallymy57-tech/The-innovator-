@@ -1,7 +1,7 @@
 {
-  "name": "telegram-bot",
+  "name": "advanced-telegram-bot",
   "version": "1.0.0",
-  "description": "بوت تلغرام احترافي بالأزرار والحفظ",
+  "description": "بوت تلغرام متقدم بإدارة الأزرار والمستخدمين والرسائل الجماعية",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
